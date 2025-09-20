@@ -6,66 +6,71 @@ use App\Http\Controllers\Controller;
 use App\Models\Job;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Database\QueryException; // Import the database exception class
+use Exception; // Import the general exception class
 
 class JobController extends Controller
 {
     /**
      * Display a paginated list of jobs.
-     * This method handles filtering by search term, location, and type.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        // Start the query chain by pre-loading the user relationship and ordering by the newest jobs.
-        // This is more efficient than adding it at the end.
-        $query = Job::query()->with('user:id,name')->latest();
+        try {
+            $query = Job::query()->with('user:id,name')->latest();
 
-        // Search filter: Applies across title, company, and description fields.
-        if ($request->filled('search')) {
-            $searchTerm = $request->search;
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('title', 'like', "%{$searchTerm}%")
-                    ->orWhere('company', 'like', "%{$searchTerm}%")
-                    ->orWhere('description', 'like', "%{$searchTerm}%");
-            });
+            if ($request->filled('search')) {
+                $searchTerm = $request->search;
+                $query->where(function ($q) use ($searchTerm) {
+                    $q->where('title', 'like', "%{$searchTerm}%")
+                        ->orWhere('company', 'like', "%{$searchTerm}%");
+                });
+            }
+            if ($request->filled('location')) {
+                $query->where('location', 'like', "%{$request->location}%");
+            }
+            if ($request->filled('type')) {
+                $query->where('type', 'request->type');
+            }
+
+            $paginatedJobs = $query->paginate(9)->withQueryString();
+
+            return response()->json($paginatedJobs);
+
+        } catch (QueryException $e) {
+            // This block runs if the database query itself fails (e.g., syntax error).
+            return response()->json([
+                'message' => 'A database error occurred while fetching jobs.'
+            ], 500);
+        } catch (Exception $e) {
+            // This is a catch-all for any other unexpected server errors.
+            return response()->json([
+                'message' => 'An unexpected error occurred.'
+            ], 500);
         }
-
-        // Location filter
-        if ($request->filled('location')) {
-            $query->where('location', 'like', "%{$request->location}%");
-        }
-
-        // Type filter
-        if ($request->filled('type')) {
-            $query->where('type', $request->type);
-        }
-
-        // Paginate the final results and include the query string in pagination links.
-        // We use paginate(9) for a clean 3x3 grid on the frontend.
-        $paginatedJobs = $query->paginate(9)->withQueryString();
-
-        // 4. THIS IS THE FIX: Explicitly return the paginated data as a JSON response.
-        //    Laravel will automatically serialize the paginator object into the correct JSON structure.
-        return response()->json($paginatedJobs);
     }
 
     /**
      * Display the specified job.
-     * Laravel's route-model binding automatically finds the Job model from the ID in the URL.
      */
     public function show(Job $job): JsonResponse
     {
-        // Return the job and its associated user as a JSON response.
-        return response()->json($job->load('user:id,name'));
+        // Laravel's Route-Model Binding automatically handles the "zero records" case.
+        try {
+            return response()->json($job->load('user:id,name'));
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'An unexpected error occurred while loading job details.'
+            ], 500);
+        }
     }
 
     /**
      * Store a new job posting.
-     * This is a protected route, accessible only by authenticated users.
      */
     public function store(Request $request): JsonResponse
     {
-        // Validate the incoming request data against the business rules.
-        // The 'description' min rule is set to 25 to match the frontend validation.
+        // Validation is handled by Laravel and will return a 422 error automatically if it fails.
         $validatedData = $request->validate([
             'title' => 'required|string|max:255',
             'company' => 'required|string|max:255',
@@ -75,26 +80,47 @@ class JobController extends Controller
             'apply_url' => 'required|url',
         ]);
 
-        // Get the currently authenticated user from the request and create the job.
-        $job = $request->user()->jobs()->create($validatedData);
+        try {
+            // Attempt to create the job in the database.
+            $job = $request->user()->jobs()->create($validatedData);
 
-        // Return the newly created job with a 201 Created status code.
-        return response()->json($job->load('user:id,name'), 201);
+            // If creation is successful, return the new job with a 201 Created status.
+            return response()->json($job->load('user:id,name'), 201);
+
+        } catch (QueryException $e) {
+            // This block runs if the database INSERT fails.
+            return response()->json([
+                'message' => 'A database error occurred while creating the job.'
+            ], 500);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'An unexpected error occurred.'
+            ], 500);
+        }
     }
 
+    /**
+     * Fetch a collection of jobs based on an array of IDs.
+     */
     public function getFavorites(Request $request): JsonResponse
     {
-        // 1. Validate that the incoming request contains an array of numeric IDs.
         $validated = $request->validate([
             'ids' => 'required|array',
             'ids.*' => 'integer',
         ]);
 
-        // 2. Use a 'whereIn' query to efficiently find all jobs whose ID is
-        //    in the provided array. We also load the user relationship.
-        $jobs = Job::with('user:id,name')->whereIn('id', $validated['ids'])->get();
+        try {
+            $jobs = Job::with('user:id,name')->whereIn('id', $validated['ids'])->get();
+            return response()->json($jobs);
 
-        // 3. Return the collection of jobs as a JSON response.
-        return response()->json($jobs);
+        } catch (QueryException $e) {
+            return response()->json([
+                'message' => 'A database error occurred while fetching favorite jobs.'
+            ], 500);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'An unexpected error occurred.'
+            ], 500);
+        }
     }
 }

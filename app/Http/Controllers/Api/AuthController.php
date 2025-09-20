@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Database\QueryException; // Import the database exception class
+use Exception; // Import the general exception class
 
 class AuthController extends Controller
 {
@@ -18,30 +20,33 @@ class AuthController extends Controller
      */
     public function register(Request $request): JsonResponse
     {
-        // 1. Validate the incoming request data.
-        //    - 'confirmed' ensures 'password' matches 'password_confirmation'.
-        //    - 'unique:'.User::class ensures no duplicate emails.
-        $request->validate([
+        $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // 2. Create the new user in the database.
-        //    - The password is securely hashed before being stored.
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-        ]);
+        try {
+            // Attempt to create the user in the database.
+            $user = User::create([
+                'name' => $validatedData['name'],
+                'email' => $validatedData['email'],
+                'password' => Hash::make($validatedData['password']),
+            ]);
 
-        // 3. Log the new user in immediately. This is what creates the secure,
-        //    stateful session that Sanctum will manage.
-        Auth::login($user);
+            // Log the new user in to create the session.
+            Auth::login($user);
+            return response()->json($user);
 
-        // 4. Return the new user object as a JSON response.
-        //    The frontend will use this to update its state.
-        return response()->json($user);
+        } catch (QueryException $e) {
+            return response()->json([
+                'message' => 'A database error occurred during registration.'
+            ], 500);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'An unexpected error occurred.'
+            ], 500);
+        }
     }
 
     /**
@@ -49,59 +54,68 @@ class AuthController extends Controller
      */
     public function login(Request $request): JsonResponse
     {
-        // 1. Validate the incoming credentials.
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required'],
         ]);
 
-        // 2. Attempt to authenticate the user using the credentials.
-        //    - 'Auth::attempt' automatically handles password hashing and comparison.
-        if (Auth::attempt($credentials, $request->boolean('remember'))) {
-            // 3. If successful, regenerate the session ID. This is a crucial
-            //    security measure to prevent session fixation attacks.
-            $request->session()->regenerate();
+        try {
+            // Attempt to authenticate the user using the credentials.
+            if (Auth::attempt($credentials, $request->boolean('remember'))) {
+                $request->session()->regenerate();
+                return response()->json(Auth::user());
+            }
 
-            // 4. Return the authenticated user object as a JSON response.
-            return response()->json(Auth::user());
+            return response()->json([
+                'message' => 'The provided credentials do not match our records.'
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+
+        } catch (QueryException $e) {
+            return response()->json([
+                'message' => 'A database error occurred during login.'
+            ], 500);
+        } catch (Exception $e) {
+            return response()->json([
+                'message' => 'An unexpected error occurred.'
+            ], 500);
         }
-
-        // 5. If authentication fails, return a 422 Unprocessable Entity error
-        //    with a clear error message.
-        return response()->json([
-            'message' => 'The provided credentials do not match our records.'
-        ], Response::HTTP_UNPROCESSABLE_ENTITY);
     }
 
     /**
      * Log the user out of the application.
      */
-    public function logout(Request $request): Response
+    public function logout(Request $request): Response|JsonResponse
     {
-        // 1. Use the 'web' guard to log the user out of the stateful session.
-        Auth::guard('web')->logout();
+        try {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
 
-        // 2. Invalidate the user's session to destroy it completely.
-        $request->session()->invalidate();
+            // A 204 No Content response is the standard for a successful logout.
+            return response()->noContent();
 
-        // 3. Regenerate the CSRF token to prevent replay attacks.
-        $request->session()->regenerateToken();
-
-        // 4. Return a 204 No Content response. This is the standard for a
-        //    successful action that does not need to return any data.
-        return response()->noContent();
+        } catch (Exception $e) {
+            // This is a safeguard. It's rare for a logout to fail, but if it does
+            // (e.g., session driver issue), we return a structured error.
+            return response()->json([
+                'message' => 'An error occurred during logout.'
+            ], 500);
+        }
     }
 
     /**
      * Get the currently authenticated user.
-     * The 'auth:sanctum' middleware protects this route. If a user is not
-     * authenticated, they will receive a 401 Unauthorized error before
-     * this method is ever called.
      */
-    public function user(Request $request)
+    public function user(Request $request): JsonResponse
     {
-        // If the request reaches this point, it means the user is authenticated.
-        // We can safely return the user object from the request.
-        return response()->json($request->user());
+        try {
+            // If the code reaches this point, we are 100% certain a user is authenticated.
+            return response()->json($request->user());
+        } catch (Exception $e) {
+            // This is a safeguard in case an unexpected error occurs.
+            return response()->json([
+                'message' => 'An unexpected error occurred while fetching user data.'
+            ], 500);
+        }
     }
 }
