@@ -1,0 +1,5 @@
+/* Import Bootstrap */
+@import "bootstrap/dist/css/bootstrap.min.css";
+
+/* Optional: Import Bootstrap Icons for nice icons */
+@import "bootstrap-icons/font/bootstrap-icons.css";

@@ -1,0 +1,89 @@
+# ===================================================================
+#  Laravel & Composer
+# ===================================================================
+
+# Ignore Composer's vendor directory
+/vendor
+
+# Ignore the Composer authentication file
+/auth.json
+
+
+# ===================================================================
+#  Environment & Configuration Files (SECURITY)
+# ===================================================================
+# This is the most important rule. NEVER commit your environment files.
+# They contain sensitive information like database passwords and API keys.
+.env
+.env.*
+!.env.example
+
+
+# ===================================================================
+#  Node.js & Frontend Build Artifacts
+# ===================================================================
+
+# Ignore Node.js dependency folder
+/node_modules
+
+# Ignore the compiled frontend assets from 'npm run build'
+/public/build
+
+# Ignore the Vite "hot reload" file used during development
+/public/hot
+
+
+# ===================================================================
+#  Laravel Storage & Cache Files
+# ===================================================================
+
+# Ignore the public storage directory (symlink)
+/public/storage
+
+# Ignore application log files
+/storage/*.log
+/storage/app/*.log
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/testing/*
+
+# Ignore Laravel Pail storage
+/storage/pail
+
+# Ignore any private keys stored in the storage directory
+/storage/*.key
+
+
+# ===================================================================
+#  IDE & Editor Configuration
+# ===================================================================
+# These files are specific to a developer's local machine and editor.
+/.idea
+/.vscode
+/.fleet
+/.zed
+/.nova
+.phpactor.json
+
+
+# ===================================================================
+#  Testing & Caching Files
+# ===================================================================
+
+.phpunit.result.cache
+/.phpunit.cache
+
+
+# ===================================================================
+#  Operating System & Miscellaneous Files
+# ===================================================================
+.DS_Store
+Thumbs.db
+
+
+# ===================================================================
+#  Development Environment Files
+# ===================================================================
+Homestead.yaml
+Homestead.json
