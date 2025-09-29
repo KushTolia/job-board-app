@@ -7,13 +7,13 @@ This project was built following the architecture where a single Laravel applica
 
 * Features  
 * Technical Overview  
-* [Project Architecture: The Monolith SPA](https://www.google.com/search?q=%23project-architecture-the-monolith-spa)  
-* [Installation & Setup](https://www.google.com/search?q=%23installation--setup)  
-  * [Prerequisites](https://www.google.com/search?q=%23prerequisites)  
-  * [1\. Local Development (Any OS)](https://www.google.com/search?q=%231-local-development-any-os)  
-  * [2\. Production Deployment on Ubuntu with Apache](https://www.google.com/search?q=%232-production-deployment-on-ubuntu-with-apache)  
-  * [3\. Production Deployment on Windows (XAMPP/WAMP)](https://www.google.com/search?q=%233-production-deployment-on-windows-xamppwamp)  
-* [API Endpoints](https://www.google.com/search?q=%23api-endpoints)  
+* Project Architecture: The Monolith SPA  
+* Installation & Setup  
+  * Prerequisites 
+  * 1\. Local Development (Any OS)
+  * 2\. Production Deployment on Ubuntu with Apache 
+  * 3\. Production Deployment on Windows (XAMPP/WAMP)
+* API Endpoints
 * Environment Variables
 
 ## **Features**
